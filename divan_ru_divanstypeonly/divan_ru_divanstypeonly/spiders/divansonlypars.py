@@ -1,15 +1,39 @@
 import scrapy
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 class DivansonlyparsSpider(scrapy.Spider):
     name = "divansonlypars"
     divans = []  # Список для хранения всех товаров
 
     def start_requests(self):
-        base_url = "https://www.divan.ru/category/divany-i-kresla/page-{page}?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54"
-        # Генерация start_urls для страниц с 1 по 23
-        for page in range(1, 24):
-            url = base_url.format(page=page)
+        urls = [
+            "https://www.divan.ru/category/divany-i-kresla?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-2?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-3?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-4?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-5?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-6?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-7?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-8?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-9?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-10?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-11?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-13?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-14?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-15?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-16?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-17?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-18?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-19?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-20?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-21?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-22?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+            "https://www.divan.ru/category/divany-i-kresla/page-23?types%5B%5D=1&types%5B%5D=4&types%5B%5D=54",
+        ]
+        for url in urls:
             yield scrapy.Request(url=url, callback=self.parse)
 
     def parse(self, response):
@@ -33,6 +57,41 @@ class DivansonlyparsSpider(scrapy.Spider):
             self.logger.info(f'Спарсено товаров: {len(self.divans)}')
 
             yield item
+
+    def closed(self, reason):
+        self.save_to_csv(reason)
+
+        # Загрузка данных из CSV файла
+        df = pd.read_csv("divans.csv")
+
+        # Преобразование столбца 'price' к числовому формату с обработкой ошибок
+        try:
+            # Фильтрация корректных числовых значений в столбце 'price'
+            df['price'] = df['price'].str.replace(' ', '')  # Удаление пробелов, если они есть
+            df = df[pd.to_numeric(df['price'], errors='coerce').notnull()]  # Фильтрация корректных числовых значений
+            df['price'] = pd.to_numeric(df['price']) # Преобразование столбца 'price' к числовому формату
+        except pd.errors.ParserError as e:
+            print(f"Ошибка при преобразовании столбца 'price': {e}")
+
+        # Расчет средней цены с двумя знаками после запятой
+        mean_price = df['price'].mean()
+        mean_price_formatted = "{:.2f}".format(mean_price)
+        print(f'Средняя цена товаров: {mean_price_formatted}')
+
+        # Создание гистограммы цен
+        plt.figure(figsize=(10, 6))
+        plt.hist(df['price'], bins=20, color='skyblue', edgecolor='black')
+        plt.xlabel('Цена')
+        plt.ylabel('Частота')
+        plt.title('Гистограмма цен на диваны на сайте divan.ru')
+        plt.grid(True)
+
+        # Добавление вертикальной линии для средней цены в гистограмму
+        mean_price = df['price'].mean()
+        plt.axvline(mean_price, color='red', linestyle='dashed', linewidth=1)
+        plt.text(mean_price, 50, f'Средняя цена: {mean_price:.2f}', rotation=90, va='bottom', ha='right', color='red')
+
+        plt.show()
 
     def save_to_csv(self, reason):
         self.logger.info(f'Паук завершил работу по причине: {reason}')
